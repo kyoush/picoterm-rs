@@ -15,6 +15,7 @@ use rp_pico::hal::{
     Sio,
 };
 use usb_device::prelude::*;
+use usbd_serial::SerialPort;
 
 const XTAL_FREQ_HZ: u32 = 12_000_000;
 const UART_BAUD_RATE: u32 = 115_200;
@@ -72,9 +73,24 @@ fn main() -> ! {
         USB_BUS = Some(usb_bus);
     }
 
-    defmt::info!("USB and UART initialized");
+    let mut serial = SerialPort::new(unsafe { USB_BUS.as_ref().unwrap() });
+
+    let mut usb_dev = UsbDeviceBuilder::new(
+        unsafe { USB_BUS.as_ref().unwrap() },
+        UsbVidPid(0x16c0, 0x27dd),
+    )
+    .strings(&[StringDescriptors::default()
+        .manufacturer("Raspberry Pi")
+        .product("PicoTerm")
+        .serial_number("12345678")])
+    .unwrap()
+    .device_class(2)
+    .build();
+
+    defmt::info!("USB CDC-ACM device created");
 
     loop {
+        usb_dev.poll(&mut [&mut serial]);
         cortex_m::asm::nop();
     }
 }
