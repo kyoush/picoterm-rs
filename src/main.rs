@@ -2,6 +2,7 @@
 #![no_main]
 
 use defmt_rtt as _;
+use embedded_hal::serial::Write;
 use fugit::RateExtU32;
 use panic_probe as _;
 use rp_pico::entry;
@@ -54,7 +55,7 @@ fn main() -> ! {
         pins.gpio1.into_function::<FunctionUart>(),
     );
 
-    let _uart = UartPeripheral::new(pac.UART0, uart_pins, &mut pac.RESETS)
+    let mut uart = UartPeripheral::new(pac.UART0, uart_pins, &mut pac.RESETS)
         .enable(
             UartConfig::new(UART_BAUD_RATE.Hz(), DataBits::Eight, None, StopBits::One),
             clocks.peripheral_clock.freq(),
@@ -87,10 +88,22 @@ fn main() -> ! {
     .device_class(2)
     .build();
 
-    defmt::info!("USB CDC-ACM device created");
+    defmt::info!("USB-UART bridge started (USB->UART only)");
 
     loop {
-        usb_dev.poll(&mut [&mut serial]);
+        if usb_dev.poll(&mut [&mut serial]) {
+            let mut buf = [0u8; 64];
+            
+            // USB -> UART
+            match serial.read(&mut buf) {
+                Ok(count) if count > 0 => {
+                    for &byte in &buf[..count] {
+                        let _ = uart.write(byte);
+                    }
+                }
+                _ => {}
+            }
+        }
         cortex_m::asm::nop();
     }
 }
