@@ -1,14 +1,16 @@
 #![no_std]
 #![no_main]
 
+mod uart_core1;
+
 use defmt_rtt as _;
-use embedded_hal::serial::{Read, Write};
 use fugit::RateExtU32;
 use panic_probe as _;
 use rp_pico::entry;
 use rp_pico::hal::{
     clocks::init_clocks_and_plls,
     gpio::FunctionUart,
+    multicore::{Multicore, Stack},
     pac,
     uart::{DataBits, StopBits, UartConfig, UartPeripheral},
     usb::UsbBus,
@@ -20,8 +22,10 @@ use usbd_serial::SerialPort;
 
 const XTAL_FREQ_HZ: u32 = 12_000_000;
 const UART_BAUD_RATE: u32 = 115_200;
+const CORE1_STACK_SIZE: usize = 4096;
 
 static mut USB_BUS: Option<UsbBusAllocator<UsbBus>> = None;
+static mut CORE1_STACK: Stack<CORE1_STACK_SIZE> = Stack::new();
 
 #[entry]
 fn main() -> ! {
@@ -41,7 +45,7 @@ fn main() -> ! {
     .ok()
     .unwrap();
 
-    let sio = Sio::new(pac.SIO);
+    let mut sio = Sio::new(pac.SIO);
     let pins = rp_pico::Pins::new(
         pac.IO_BANK0,
         pac.PADS_BANK0,
@@ -49,13 +53,13 @@ fn main() -> ! {
         &mut pac.RESETS,
     );
 
-    // Initialize UART
+    // Initialize UART (Core1 will access it via PAC)
     let uart_pins = (
         pins.gpio0.into_function::<FunctionUart>(),
         pins.gpio1.into_function::<FunctionUart>(),
     );
 
-    let mut uart = UartPeripheral::new(pac.UART0, uart_pins, &mut pac.RESETS)
+    let _uart = UartPeripheral::new(pac.UART0, uart_pins, &mut pac.RESETS)
         .enable(
             UartConfig::new(UART_BAUD_RATE.Hz(), DataBits::Eight, None, StopBits::One),
             clocks.peripheral_clock.freq(),
@@ -88,28 +92,20 @@ fn main() -> ! {
     .device_class(2)
     .build();
 
-    defmt::info!("USB-UART bridge started (bidirectional)");
+    // Start Core1 for UART handling
+    let mut mc = Multicore::new(&mut pac.PSM, &mut pac.PPB, &mut sio.fifo);
+    let cores = mc.cores();
+    let core1 = &mut cores[1];
+    core1
+        .spawn(unsafe { &mut CORE1_STACK.mem }, move || {
+            uart_core1::uart_core1_task()
+        })
+        .unwrap();
+
+    defmt::info!("Dual-core USB-UART bridge started");
 
     loop {
-        if usb_dev.poll(&mut [&mut serial]) {
-            let mut buf = [0u8; 64];
-            
-            // USB -> UART
-            match serial.read(&mut buf) {
-                Ok(count) if count > 0 => {
-                    for &byte in &buf[..count] {
-                        let _ = uart.write(byte);
-                    }
-                }
-                _ => {}
-            }
-        }
-
-        // UART -> USB
-        if let Ok(byte) = uart.read() {
-            let _ = serial.write(&[byte]);
-        }
-
+        usb_dev.poll(&mut [&mut serial]);
         cortex_m::asm::nop();
     }
 }
