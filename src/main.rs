@@ -53,7 +53,7 @@ fn main() -> ! {
         &mut pac.RESETS,
     );
 
-    // Initialize UART (Core1 will access it via PAC)
+    // Initialize UART
     let uart_pins = (
         pins.gpio0.into_function::<FunctionUart>(),
         pins.gpio1.into_function::<FunctionUart>(),
@@ -92,7 +92,7 @@ fn main() -> ! {
     .device_class(2)
     .build();
 
-    // Start Core1 for UART handling
+    // Start Core1
     let mut mc = Multicore::new(&mut pac.PSM, &mut pac.PPB, &mut sio.fifo);
     let cores = mc.cores();
     let core1 = &mut cores[1];
@@ -102,10 +102,23 @@ fn main() -> ! {
         })
         .unwrap();
 
-    defmt::info!("Dual-core USB-UART bridge started");
+    defmt::info!("Dual-core bridge started (USB->UART via FIFO)");
 
+    // Core0: Handle USB and send to Core1 via FIFO
     loop {
-        usb_dev.poll(&mut [&mut serial]);
+        if usb_dev.poll(&mut [&mut serial]) {
+            let mut buf = [0u8; 64];
+            
+            // USB -> FIFO -> Core1 -> UART
+            match serial.read(&mut buf) {
+                Ok(count) if count > 0 => {
+                    for &byte in &buf[..count] {
+                        sio.fifo.write(byte as u32);
+                    }
+                }
+                _ => {}
+            }
+        }
         cortex_m::asm::nop();
     }
 }
