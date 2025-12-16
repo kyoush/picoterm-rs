@@ -19,3 +19,8 @@ fugit = "0.3.7"
 # USB support
 usb-device = "0.3"
 usbd-serial = "0.2"
+
+# Multicore support
+rp2040-hal = "0.10"
+heapless = "0.8"
+critical-section = "1.0"
