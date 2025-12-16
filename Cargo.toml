@@ -15,3 +15,7 @@ panic-probe = { version = "0.3", features = ["print-defmt"] }
 
 rp-pico = "0.9"
 fugit = "0.3.7"
+
+# USB support
+usb-device = "0.3"
+usbd-serial = "0.2"
