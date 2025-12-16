@@ -10,12 +10,16 @@ use rp_pico::hal::{
     gpio::FunctionUart,
     pac,
     uart::{DataBits, StopBits, UartConfig, UartPeripheral},
+    usb::UsbBus,
     watchdog::Watchdog,
     Sio,
 };
+use usb_device::prelude::*;
 
 const XTAL_FREQ_HZ: u32 = 12_000_000;
 const UART_BAUD_RATE: u32 = 115_200;
+
+static mut USB_BUS: Option<UsbBusAllocator<UsbBus>> = None;
 
 #[entry]
 fn main() -> ! {
@@ -43,7 +47,7 @@ fn main() -> ! {
         &mut pac.RESETS,
     );
 
-    // Initialize UART0 on pins GPIO0 (TX) and GPIO1 (RX)
+    // Initialize UART
     let uart_pins = (
         pins.gpio0.into_function::<FunctionUart>(),
         pins.gpio1.into_function::<FunctionUart>(),
@@ -56,7 +60,19 @@ fn main() -> ! {
         )
         .unwrap();
 
-    defmt::info!("UART initialized at {} baud", UART_BAUD_RATE);
+    // Initialize USB
+    let usb_bus = UsbBusAllocator::new(UsbBus::new(
+        pac.USBCTRL_REGS,
+        pac.USBCTRL_DPRAM,
+        clocks.usb_clock,
+        true,
+        &mut pac.RESETS,
+    ));
+    unsafe {
+        USB_BUS = Some(usb_bus);
+    }
+
+    defmt::info!("USB and UART initialized");
 
     loop {
         cortex_m::asm::nop();
