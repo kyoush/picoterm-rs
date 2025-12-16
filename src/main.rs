@@ -2,7 +2,7 @@
 #![no_main]
 
 use defmt_rtt as _;
-use embedded_hal::serial::Write;
+use embedded_hal::serial::{Read, Write};
 use fugit::RateExtU32;
 use panic_probe as _;
 use rp_pico::entry;
@@ -88,7 +88,7 @@ fn main() -> ! {
     .device_class(2)
     .build();
 
-    defmt::info!("USB-UART bridge started (USB->UART only)");
+    defmt::info!("USB-UART bridge started (bidirectional)");
 
     loop {
         if usb_dev.poll(&mut [&mut serial]) {
@@ -104,6 +104,12 @@ fn main() -> ! {
                 _ => {}
             }
         }
+
+        // UART -> USB
+        if let Ok(byte) = uart.read() {
+            let _ = serial.write(&[byte]);
+        }
+
         cortex_m::asm::nop();
     }
 }
