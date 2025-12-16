@@ -102,9 +102,9 @@ fn main() -> ! {
         })
         .unwrap();
 
-    defmt::info!("Dual-core bridge started (USB->UART via FIFO)");
+    defmt::info!("Dual-core bridge started (bidirectional via FIFO)");
 
-    // Core0: Handle USB and send to Core1 via FIFO
+    // Core0: Handle USB bidirectionally with Core1
     loop {
         if usb_dev.poll(&mut [&mut serial]) {
             let mut buf = [0u8; 64];
@@ -119,6 +119,13 @@ fn main() -> ! {
                 _ => {}
             }
         }
+
+        // UART -> Core1 -> FIFO -> USB
+        if let Some(data) = sio.fifo.read() {
+            let byte = (data & 0xFF) as u8;
+            let _ = serial.write(&[byte]);
+        }
+
         cortex_m::asm::nop();
     }
 }
