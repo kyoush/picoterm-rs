@@ -23,10 +23,11 @@ usbd-serial = "0.2"
 
 # Multicore support
 rp2040-hal = { version = "0.10", optional = true }
+rp235x-hal = { version = "0.3.0", features = ["critical-section-impl", "rt", "defmt"], optional = true }
 heapless = "0.8"
 critical-section = "1.0"
 
 [features]
 default = ["rp2040"]
 rp2040 = ["rp-pico", "rp2040-hal"]
-rp2350 = []
+rp2350 = ["rp235x-hal"]
