@@ -1,2 +1,4 @@
 /target
 Cargo.lock
+memory.x
+*.uf2
