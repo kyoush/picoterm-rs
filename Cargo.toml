@@ -27,9 +27,10 @@ heapless = "0.8"
 # Multicore helpers
 rp2040-hal = { version = "0.10", optional = true }
 # RP2350 HAL - only compiled when rp2350 feature is enabled
-rp235x-hal = { version = "0.3.0", features = ["critical-section-impl", "rt", "defmt"], optional = true }
+rp235x-hal = { version = "0.3.0", features = ["binary-info", "critical-section-impl", "rt", "defmt"], optional = true }
 # critical-section crate (if needed)
 critical-section = "1.0"
+rp-binary-info = { version = "0.1", optional = true }
 
 [features]
 # board feature flags: select which board-specific settings to compile
@@ -38,5 +39,5 @@ rp2040 = ["rp-pico", "rp2040-hal"]
 # `rp2350` enables the optional `rp235x-hal` dependency so it's only
 # compiled when the feature is explicitly requested (and usually when
 # cross-compiling for the thumbv8m target).
-rp2350 = ["rp235x-hal"]
+rp2350 = ["rp235x-hal", "rp-binary-info"]
 default = ["rp2040"]
