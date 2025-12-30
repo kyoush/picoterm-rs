@@ -4,7 +4,6 @@ use bsp_hal::pac::RESETS;
 use bsp_hal::pac::{USBCTRL_DPRAM, USBCTRL_REGS};
 use bsp_hal::usb::UsbBus as HalUsbBus;
 use usb_device::bus::UsbBusAllocator;
-use usb_device::class_prelude::*;
 use usb_device::prelude::*;
 use usbd_serial::SerialPort;
 
@@ -56,8 +55,8 @@ pub fn init_usb(
         let serial_ptr = core::ptr::addr_of_mut!(USB_SERIAL);
         (*serial_ptr).as_mut_ptr().write(SerialPort::new(usb_bus));
 
-        let dev = UsbDeviceBuilder::new(usb_bus, UsbVidPid(0x16c0, 0x27dd))
-            .strings(&[StringDescriptors::new(LangID::EN)
+        let dev = UsbDeviceBuilder::new(usb_bus, UsbVidPid(0x2E8A, 0x000A))
+            .strings(&[StringDescriptors::default()
                 .manufacturer("Example")
                 .product("rp-serial")
                 .serial_number("000")])
